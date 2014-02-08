@@ -19,6 +19,14 @@ func newConn(c net.Conn) *conn {
 	}
 }
 
+func (conn *conn) sendOne(req *Request) error {
+	if err := conn.send(req); err != nil {
+		return err
+	}
+
+	return conn.buf.Flush()
+}
+
 func (conn *conn) sendBatch(reqs []*Request) error {
 	for _, r := range reqs {
 		if err := conn.send(r); err != nil {

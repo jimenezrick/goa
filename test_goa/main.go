@@ -27,8 +27,8 @@ package main
 
 import (
 	"fmt"
-	//"io/ioutil"
-	//"log"
+	"io/ioutil"
+	"log"
 	"os"
 	"runtime"
 	"strconv"
@@ -41,9 +41,9 @@ import "github.com/jimenezrick/goa"
 // 120.000 eventos sin el batching
 
 const (
-	routes = 1          //8
-	procs  = 1          //56
-	secs   = 1000000000 //10
+	routes = 8
+	procs  = 256
+	secs   = 10
 )
 
 var cntr uint64
@@ -52,7 +52,7 @@ func main() {
 	runtime.GOMAXPROCS(runtime.NumCPU())
 
 	// XXX
-	//log.SetOutput(ioutil.Discard)
+	log.SetOutput(ioutil.Discard)
 	// XXX
 
 	//
@@ -96,19 +96,19 @@ func test(dom *goa.Domain) {
 
 	for {
 		req := bind.NewRequest([]byte("ping2"))
-		//req.SetTimeout(time.Second)
+		req.SetTimeout(time.Second)
 		if err := req.Send(); err != nil {
 			fmt.Println("Send:", err)
 			return
 		}
-		println("Send()")
+		//println("Send()")
 
-		rsp, err := req.Recv()
+		_, err := req.Recv()
 		if err != nil {
 			fmt.Println("Recv:", err)
 			return
 		}
-		println("Recv()", string(rsp))
+		//println("Recv()", string(rsp))
 		atomic.AddUint64(&cntr, 1)
 	}
 }

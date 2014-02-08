@@ -2,7 +2,6 @@ package goa
 
 import (
 	"errors"
-	"fmt"
 	"log"
 	"math"
 	"math/rand"
@@ -96,9 +95,9 @@ func (ro *Route) send() {
 		batchSize = 0
 	batch:
 		for {
-			println("AGAIN ", len(ro.queue), batchSize)
+			log.Print("AGAIN ", len(ro.queue), batchSize)
 			if len(ro.queue) == 0 && batchSize > 0 {
-				fmt.Println("empty queue, send batch")
+				log.Println("empty queue, send batch")
 				break batch
 			}
 
@@ -111,12 +110,12 @@ func (ro *Route) send() {
 					log.Fatal("connection closed")
 				}
 
-				fmt.Println("batching")
+				log.Println("batching")
 
 				batchReqs = append(batchReqs, req)
 				batchSize += len(req.payld)
 				if batchSize >= minBatchSize {
-					fmt.Println("full batch")
+					log.Println("full batch")
 					break batch
 				}
 			//case <-time.After(time.Second):
@@ -138,7 +137,7 @@ func (ro *Route) send() {
 			ro.setPending(req)
 		}
 
-		fmt.Println("sending full batch")
+		log.Println("sending full batch")
 		if err := ro.conn.sendBatch(batchReqs); err != nil {
 			log.Print("2 ", err)
 			close(ro.exited)

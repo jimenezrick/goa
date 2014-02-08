@@ -81,6 +81,10 @@ func (d *Domain) Announce(service string, handler func([]byte, uint64) ([]byte, 
 		return err
 	}
 
+	//
+	// TODO: Optimize with batching like the client side
+	//
+
 	go func() {
 		for {
 			netconn, err := lis.Accept()
@@ -102,7 +106,7 @@ func (d *Domain) Announce(service string, handler func([]byte, uint64) ([]byte, 
 					payld, seq = handler(payld, seq)
 
 					req := newRequest(payld, seq)
-					if err := conn.send(req); err != nil {
+					if err := conn.sendOne(req); err != nil {
 						log.Fatal(err)
 					}
 					log.Print("SEND ", seq, " ", string(payld))
