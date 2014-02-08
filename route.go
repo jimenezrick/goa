@@ -104,6 +104,7 @@ func (ro *Route) send() {
 			select {
 			//
 			// TODO: read from chan in batches and conn.sendBatch() + flush()
+			//       Do not drain queue completely, batch only a few of requests
 			//
 			case req, ok := <-ro.queue:
 				if !ok {
@@ -118,10 +119,10 @@ func (ro *Route) send() {
 					log.Println("full batch")
 					break batch
 				}
-			//case <-time.After(time.Second):
-			//println(len(ro.queue), len(batchReqs)) // XXX
-			//panic("SHIT")                          // XXX
-			//log.Fatal("queue blocked ", len(ro.queue))
+			case <-time.After(time.Second):
+				println(len(ro.queue), len(batchReqs)) // XXX
+				panic("SHIT")                          // XXX
+				log.Fatal("queue blocked ", len(ro.queue))
 			case <-ro.closed:
 				// XXX: Take care of batched requests
 				log.Print("1")

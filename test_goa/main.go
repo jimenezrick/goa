@@ -31,6 +31,7 @@ import (
 	"log"
 	"os"
 	"runtime"
+	//"runtime/pprof"
 	"strconv"
 	"sync/atomic"
 	"time"
@@ -53,6 +54,15 @@ func main() {
 
 	// XXX
 	log.SetOutput(ioutil.Discard)
+	// XXX
+
+	// XXX
+	//f, err := os.Create("goa.prof")
+	//if err != nil {
+	//panic(err)
+	//}
+	//pprof.StartCPUProfile(f)
+	//defer pprof.StopCPUProfile()
 	// XXX
 
 	//
