@@ -106,10 +106,10 @@ func (d *Domain) Announce(service string, handler func([]byte, uint64) ([]byte, 
 
 			conn := newConn(netconn)
 			go func() {
-				reqs := make([]*Request, 0, 8)
+				reqs := make([]*Request, 0, maxBatchLen)
 				for {
 					reqs = reqs[:0:cap(reqs)]
-					for i := 0; i < 8; i++ {
+					for i := 0; i < maxBatchLen; i++ {
 						payld, seq, err := conn.recv()
 						if err != nil {
 							log.Debug(err)
