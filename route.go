@@ -7,9 +7,9 @@ import (
 	"net"
 	"sync"
 	"time"
-)
 
-import "github.com/jimenezrick/goa/log"
+	"github.com/jimenezrick/goa/log"
+)
 
 const (
 	routeConnectRetries = 5

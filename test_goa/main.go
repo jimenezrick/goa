@@ -38,9 +38,7 @@ import (
 	"strconv"
 	"sync/atomic"
 	"time"
-)
 
-import (
 	"github.com/jimenezrick/goa"
 	"github.com/jimenezrick/goa/log"
 )
@@ -55,9 +53,9 @@ var (
 	client  = flag.Bool("client", false, "Run in client mode")
 	debug   = flag.Bool("debug", false, "Enable debug logging")
 	profile = flag.Bool("profile", false, "Enable profiling")
-)
 
-var cntr uint64
+	cntr uint64
+)
 
 func main() {
 	defer log.Flush()
@@ -85,7 +83,7 @@ func main() {
 			func(req []byte, seq uint64) ([]byte, uint64) {
 				return []byte("pong" + string(req)), seq
 			})
-		select {}
+		goa.WaitExit()
 	} else {
 		for i := 0; i < routes; i++ {
 			dom.AddRoute("com.bar", "localhost:8000") // XXX: Hack

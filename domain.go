@@ -4,9 +4,9 @@ import (
 	"errors"
 	"net"
 	"sync"
-)
 
-import "github.com/jimenezrick/goa/log"
+	"github.com/jimenezrick/goa/log"
+)
 
 type Domain struct {
 	name string
@@ -15,12 +15,22 @@ type Domain struct {
 	bindings map[string]*Binding // service -> binding
 }
 
-var ErrNoRoute = errors.New("nonexistent route")
-
 var (
+	ErrNoRoute = errors.New("nonexistent route")
+
+	goaExit = make(chan struct{})
+
 	domainsMtx sync.Mutex
 	domains    = make(map[string]*Domain)
 )
+
+func Exit() {
+	goaExit <- struct{}{}
+}
+
+func WaitExit() {
+	<-goaExit
+}
 
 func newDomain(name string) *Domain {
 	return &Domain{
@@ -103,6 +113,7 @@ func (d *Domain) Announce(service string, handler func([]byte, uint64) ([]byte, 
 						payld, seq, err := conn.recv()
 						if err != nil {
 							log.Debug(err)
+							Exit()
 						}
 						log.Debug("RECV(", seq, ") ", string(payld))
 
