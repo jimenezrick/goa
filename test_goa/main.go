@@ -25,21 +25,25 @@ package main
 //
 // XXX XXX XXX
 
+// XXX
+// 398.758 eventos con el batching en ambos lados
+// XXX
+
 import (
+	"flag"
 	"fmt"
-	"io/ioutil"
-	"log"
 	"os"
 	"runtime"
-	//"runtime/pprof"
+	"runtime/pprof"
 	"strconv"
 	"sync/atomic"
 	"time"
 )
 
-import "github.com/jimenezrick/goa"
-
-// 120.000 eventos sin el batching
+import (
+	"github.com/jimenezrick/goa"
+	"github.com/jimenezrick/goa/log"
+)
 
 const (
 	routes = 8
@@ -47,33 +51,39 @@ const (
 	secs   = 10
 )
 
+var (
+	client  = flag.Bool("client", false, "Run in client mode")
+	debug   = flag.Bool("debug", false, "Enable debug logging")
+	profile = flag.Bool("profile", false, "Enable profiling")
+)
+
 var cntr uint64
 
 func main() {
+	defer log.Flush()
+
 	runtime.GOMAXPROCS(runtime.NumCPU())
+	flag.Parse()
 
-	// XXX
-	log.SetOutput(ioutil.Discard)
-	// XXX
+	if *debug {
+		log.EnableDebug()
+	}
 
-	// XXX
-	//f, err := os.Create("goa.prof")
-	//if err != nil {
-	//panic(err)
-	//}
-	//pprof.StartCPUProfile(f)
-	//defer pprof.StopCPUProfile()
-	// XXX
+	if *profile {
+		fd, err := os.Create("goa.prof")
+		if err != nil {
+			panic(err)
+		}
 
-	//
-	// XXX: Optional logging
-	//
+		pprof.StartCPUProfile(fd)
+		defer pprof.StopCPUProfile()
+	}
+
 	dom := goa.GetDomain("foo")
-	if len(os.Args) == 1 {
+	if !*client {
 		dom.Announce("com.bar",
 			func(req []byte, seq uint64) ([]byte, uint64) {
-				rsp := append([]byte("pong("+strconv.FormatUint(seq, 10)+"):"), req...)
-				return rsp, seq
+				return []byte("pong" + string(req)), seq
 			})
 		select {}
 	} else {
@@ -82,13 +92,10 @@ func main() {
 		}
 
 		for i := 0; i < procs; i++ {
-			go test(dom)
+			go test(i, dom)
 		}
 
-		// TODO: req.RecvTimeout()
-		//<-req.Rsp()
-		//req.Seq()
-
+		// TODO: bind := dom.Bind("com.bar", "endpoint")
 		// TODO <-bind.Call([]byte("ping"))
 		// TODO bind.Cast([]byte("ping"))
 
@@ -97,28 +104,32 @@ func main() {
 	}
 }
 
-func test(dom *goa.Domain) {
+func test(n int, dom *goa.Domain) {
 	bind, err := dom.Bind("com.bar")
 	if err != nil {
 		panic(err)
 	}
-	// TODO: bind := dom.Bind("com.bar", "endpoint")
 
+	payld := []byte("ping" + strconv.Itoa(n))
+	rsp2 := "pong" + string(payld)
 	for {
-		req := bind.NewRequest([]byte("ping2"))
+		req := bind.NewRequest(payld)
 		req.SetTimeout(time.Second)
 		if err := req.Send(); err != nil {
-			fmt.Println("Send:", err)
-			return
+			panic(err)
 		}
-		//println("Send()")
+		log.Debug("SEND ", string(payld))
 
-		_, err := req.Recv()
+		rsp, err := req.Recv()
 		if err != nil {
-			fmt.Println("Recv:", err)
-			return
+			panic(err)
 		}
-		//println("Recv()", string(rsp))
+
+		if rsp2 != string(rsp) {
+			panic("bad request")
+		}
+
+		log.Debug("RECV ", string(rsp))
 		atomic.AddUint64(&cntr, 1)
 	}
 }

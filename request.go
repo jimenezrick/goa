@@ -10,7 +10,7 @@ type Request struct {
 	payld []byte
 	rsp   chan []byte
 	seq   uint64
-	tout  *time.Duration // XXX: Use socket deadlines instead?
+	tout  *time.Duration
 }
 
 var ErrTimeout = errors.New("timeout exceeded")
@@ -26,41 +26,36 @@ func (req *Request) SetTimeout(t time.Duration) {
 	req.tout = &t
 }
 
+func (req *Request) createTimeout() <-chan time.Time {
+	if req.tout != nil {
+		return time.After(*req.tout)
+	}
+
+	return nil
+}
+
 func (req *Request) Rsp() <-chan []byte {
 	return req.rsp
 }
 
 func (req *Request) Send() error {
 	//
-	// TODO: req.SetRetry()
-	//       implement here retry logic?
+	// TODO: req.SetRetry(N), implement here retry logic
 	//
-	var t <-chan time.Time
-
-	if req.tout != nil {
-		t = time.After(*req.tout)
-	}
-
 	r := req.bind.pickRandRoute()
 	select {
 	case r.queue <- req:
 		return nil
-	case <-t:
+	case <-req.createTimeout():
 		return ErrTimeout
 	}
 }
 
 func (req *Request) Recv() ([]byte, error) {
-	var t <-chan time.Time
-
-	if req.tout != nil {
-		t = time.After(*req.tout)
-	}
-
 	select {
 	case rsp := <-req.rsp:
 		return rsp, nil
-	case <-t:
+	case <-req.createTimeout():
 		return nil, ErrTimeout
 	}
 }

@@ -2,13 +2,14 @@ package goa
 
 import (
 	"errors"
-	"log"
 	"math"
 	"math/rand"
 	"net"
 	"sync"
 	"time"
 )
+
+import "github.com/jimenezrick/goa/log"
 
 const (
 	routeConnectRetries = 5
@@ -56,7 +57,7 @@ func (ro *Route) connect() error {
 	for i := 0; i < routeConnectRetries; i++ {
 		netconn, err = net.Dial("tcp", ro.addr)
 		if err != nil {
-			log.Print(err)
+			log.Debug(err)
 		} else {
 			break
 		}
@@ -68,7 +69,7 @@ func (ro *Route) connect() error {
 		return err
 	}
 
-	log.Print("route connected")
+	log.Debug("Connected to", netconn.RemoteAddr())
 	ro.conn = newConn(netconn)
 	ro.closed = make(chan struct{})
 	ro.exited = make(chan struct{})
@@ -95,9 +96,7 @@ func (ro *Route) send() {
 		batchSize = 0
 	batch:
 		for {
-			log.Print("AGAIN ", len(ro.queue), batchSize)
 			if len(ro.queue) == 0 && batchSize > 0 {
-				log.Println("empty queue, send batch")
 				break batch
 			}
 
@@ -108,25 +107,19 @@ func (ro *Route) send() {
 			//
 			case req, ok := <-ro.queue:
 				if !ok {
-					log.Fatal("connection closed")
+					panic("queue closed")
 				}
-
-				log.Println("batching")
 
 				batchReqs = append(batchReqs, req)
 				batchSize += len(req.payld)
 				if batchSize >= minBatchSize {
-					log.Println("full batch")
 					break batch
 				}
 			case <-time.After(time.Second):
-				println(len(ro.queue), len(batchReqs)) // XXX
-				panic("SHIT")                          // XXX
-				log.Fatal("queue blocked ", len(ro.queue))
+				panic("queue blocked")
 			case <-ro.closed:
 				// XXX: Take care of batched requests
-				log.Print("1")
-				log.Print("closing sender ", len(ro.queue))
+				panic("closing")
 				close(ro.exited)
 				return
 			}
@@ -138,9 +131,7 @@ func (ro *Route) send() {
 			ro.setPending(req)
 		}
 
-		log.Println("sending full batch")
 		if err := ro.conn.sendBatch(batchReqs); err != nil {
-			log.Print("2 ", err)
 			close(ro.exited)
 			//reenqueueReq(req, ro.queue)
 			return
@@ -157,7 +148,6 @@ func (ro *Route) send() {
 //
 func reenqueueReq(req *Request, queue chan<- *Request) {
 	// XXX: Timeout
-	log.Print("XXX reenqueueReq")
 	queue <- req
 }
 
@@ -167,21 +157,16 @@ func (ro *Route) recv() {
 	for {
 		payld, seq, err := ro.conn.recv()
 		if err != nil {
-			log.Print("3 ", err)
 			close(ro.closed)
 			<-ro.exited
-			log.Print("3.1", err)
-			log.Print("exit signaled")
 
 			ro.connect()
-			log.Print("3.2", err)
 			return
 		}
-		log.Print("RECV ", seq, string(payld))
 
 		rsp := ro.getPending(seq)
 		if rsp == nil {
-			log.Print("Dropping msg:", ErrUnknownSeq)
+			log.Debug("Dropping msg:", ErrUnknownSeq)
 		}
 
 		select {

@@ -2,10 +2,11 @@ package goa
 
 import (
 	"errors"
-	"log"
 	"net"
 	"sync"
 )
+
+import "github.com/jimenezrick/goa/log"
 
 type Domain struct {
 	name string
@@ -89,27 +90,46 @@ func (d *Domain) Announce(service string, handler func([]byte, uint64) ([]byte, 
 		for {
 			netconn, err := lis.Accept()
 			if err != nil {
-				log.Fatal(err)
+				log.Debug(err)
 			}
-			log.Print("connection accepted")
+			log.Debug("Connection accepted from", netconn.RemoteAddr())
 
 			conn := newConn(netconn)
 			go func() {
+				reqs := make([]*Request, 0, 8)
 				for {
-					payld, seq, err := conn.recv()
-					if err != nil {
-						log.Fatal(err)
-					}
-					log.Print("RECV ", seq, " ", string(payld))
+					reqs = reqs[:0:cap(reqs)]
+					for i := 0; i < 8; i++ {
+						payld, seq, err := conn.recv()
+						if err != nil {
+							log.Debug(err)
+						}
+						log.Debug("RECV(", seq, ") ", string(payld))
 
-					log.Print("handler executing")
-					payld, seq = handler(payld, seq)
+						payld, seq = handler(payld, seq)
 
-					req := newRequest(payld, seq)
-					if err := conn.sendOne(req); err != nil {
-						log.Fatal(err)
+						req := newRequest(payld, seq)
+
+						reqs = append(reqs, req)
 					}
-					log.Print("SEND ", seq, " ", string(payld))
+
+					if err := conn.sendBatch(reqs); err != nil {
+						log.Debug(err)
+					}
+
+					//payld, seq, err := conn.recv()
+					//if err != nil {
+					//log.Debug(err)
+					//}
+					//log.Debug("RECV(", seq, ") ", string(payld))
+
+					//payld, seq = handler(payld, seq)
+
+					//req := newRequest(payld, seq)
+					//if err := conn.sendOne(req); err != nil {
+					//log.Debug(err)
+					//}
+					//log.Debug("SEND(", seq, ") ", string(payld))
 				}
 
 				//
