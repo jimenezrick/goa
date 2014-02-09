@@ -26,7 +26,7 @@ package main
 // XXX XXX XXX
 
 // XXX
-// 398.758 eventos con el batching en ambos lados
+// 515.501 msg/s sin timeouts
 // XXX
 
 import (
