@@ -55,7 +55,6 @@ func (conn *conn) recv() ([]byte, uint64, error) {
 		return nil, 0, err
 	}
 
-	// TODO: too much allocation? memory pool? slab?
 	payld := make([]byte, size)
 	_, err = io.ReadFull(conn.buf, payld)
 	if err != nil {

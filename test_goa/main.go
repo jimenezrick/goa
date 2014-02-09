@@ -50,9 +50,10 @@ const (
 )
 
 var (
-	client  = flag.Bool("client", false, "Run in client mode")
-	debug   = flag.Bool("debug", false, "Enable debug logging")
-	profile = flag.Bool("profile", false, "Enable profiling")
+	client     = flag.Bool("client", false, "Run in client mode")
+	debug      = flag.Bool("debug", false, "Enable debug logging")
+	profile    = flag.Bool("profile", false, "Enable cpu profiling")
+	memprofile = flag.Bool("memprofile", false, "Enable memory profiling")
 
 	cntr uint64
 )
@@ -99,6 +100,16 @@ func main() {
 
 		<-time.After(secs * time.Second)
 		fmt.Println(atomic.LoadUint64(&cntr) / secs)
+	}
+
+	if *memprofile {
+		fd, err := os.Create("goa.memprof")
+		if err != nil {
+			panic(err)
+		}
+
+		pprof.WriteHeapProfile(fd)
+		fd.Close()
 	}
 }
 
