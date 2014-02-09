@@ -12,7 +12,7 @@ type Domain struct {
 	name string
 
 	mtx      sync.RWMutex
-	bindings map[string]*Binding // service -> binding
+	bindings map[string]*Binding
 }
 
 var (
