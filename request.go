@@ -22,8 +22,8 @@ func newRequest(payld []byte, seq uint64) *Request {
 	}
 }
 
-func (req *Request) SetTimeout(t time.Duration) {
-	req.tout = &t
+func (req *Request) SetTimeout(d time.Duration) {
+	req.tout = &d
 }
 
 func (req *Request) createTimeout() <-chan time.Time {
