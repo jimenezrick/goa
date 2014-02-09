@@ -57,12 +57,11 @@ func (ro *Route) connect() error {
 
 	for i := 0; i < routeConnectRetries; i++ {
 		netconn, err = net.Dial("tcp", ro.addr)
-		if err != nil {
-			log.Debug(err)
-		} else {
+		if err == nil {
 			break
 		}
 
+		log.Debug(err)
 		waitBackoff(i)
 	}
 	if err != nil {
