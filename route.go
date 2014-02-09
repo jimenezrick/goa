@@ -13,8 +13,9 @@ import "github.com/jimenezrick/goa/log"
 
 const (
 	routeConnectRetries = 5
-	routeQueueSize      = 128
+	routeQueueLen       = 128
 	minBatchSize        = 1024
+	maxBatchLen         = routeQueueLen / 8
 )
 
 type Route struct {
@@ -42,7 +43,7 @@ func init() {
 func newRoute(addr string) *Route {
 	return &Route{
 		addr:    addr,
-		queue:   make(chan *Request, routeQueueSize),
+		queue:   make(chan *Request, routeQueueLen),
 		closed:  make(chan struct{}),
 		exited:  make(chan struct{}),
 		pending: make(map[uint64]chan<- []byte),
@@ -88,7 +89,7 @@ func waitBackoff(i int) {
 func (ro *Route) send() {
 	defer ro.conn.close()
 
-	var batchReqs = make([]*Request, 0, routeQueueSize)
+	var batchReqs = make([]*Request, 0, routeQueueLen)
 	var batchSize = 0
 
 	for {
@@ -96,7 +97,7 @@ func (ro *Route) send() {
 		batchSize = 0
 	batch:
 		for {
-			if len(ro.queue) == 0 && batchSize > 0 {
+			if len(ro.queue) == 0 && len(batchReqs) > 0 {
 				break batch
 			}
 
@@ -112,7 +113,7 @@ func (ro *Route) send() {
 
 				batchReqs = append(batchReqs, req)
 				batchSize += len(req.payld)
-				if batchSize >= minBatchSize {
+				if len(batchReqs) == maxBatchLen || batchSize >= minBatchSize {
 					break batch
 				}
 			case <-time.After(time.Second):
