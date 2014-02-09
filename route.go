@@ -112,8 +112,6 @@ func (ro *Route) send() {
 				if len(reqsBatch) == maxBatchLen || batchSize >= minBatchSize {
 					break batch
 				}
-			case <-time.After(time.Second):
-				panic("queue blocked")
 			case <-ro.closed:
 				// XXX: Take care of batched requests
 				panic("closing")
