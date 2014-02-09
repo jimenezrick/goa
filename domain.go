@@ -127,25 +127,7 @@ func (d *Domain) Announce(service string, handler func([]byte, uint64) ([]byte, 
 					if err := conn.sendBatch(reqs); err != nil {
 						log.Debug(err)
 					}
-
-					//payld, seq, err := conn.recv()
-					//if err != nil {
-					//log.Debug(err)
-					//}
-					//log.Debug("RECV(", seq, ") ", string(payld))
-
-					//payld, seq = handler(payld, seq)
-
-					//req := newRequest(payld, seq)
-					//if err := conn.sendOne(req); err != nil {
-					//log.Debug(err)
-					//}
-					//log.Debug("SEND(", seq, ") ", string(payld))
 				}
-
-				//
-				// XXX
-				//
 			}()
 		}
 	}()
