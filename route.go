@@ -89,31 +89,27 @@ func waitBackoff(i int) {
 func (ro *Route) send() {
 	defer ro.conn.close()
 
-	var batchReqs = make([]*Request, 0, routeQueueLen)
+	var reqsBatch = make([]*Request, 0, routeQueueLen)
 	var batchSize = 0
 
 	for {
-		batchReqs = batchReqs[:0:cap(batchReqs)]
+		reqsBatch = reqsBatch[:0:cap(reqsBatch)]
 		batchSize = 0
 	batch:
 		for {
-			if len(ro.queue) == 0 && len(batchReqs) > 0 {
+			if len(ro.queue) == 0 && len(reqsBatch) > 0 {
 				break batch
 			}
 
 			select {
-			//
-			// TODO: read from chan in batches and conn.sendBatch() + flush()
-			//       Do not drain queue completely, batch only a few of requests
-			//
 			case req, ok := <-ro.queue:
 				if !ok {
 					panic("queue closed")
 				}
 
-				batchReqs = append(batchReqs, req)
+				reqsBatch = append(reqsBatch, req)
 				batchSize += len(req.payld)
-				if len(batchReqs) == maxBatchLen || batchSize >= minBatchSize {
+				if len(reqsBatch) == maxBatchLen || batchSize >= minBatchSize {
 					break batch
 				}
 			case <-time.After(time.Second):
@@ -126,13 +122,13 @@ func (ro *Route) send() {
 			}
 		}
 
-		for _, req := range batchReqs {
+		for _, req := range reqsBatch {
 			req.seq = ro.seq
 			ro.seq++
-			ro.setPending(req)
 		}
+		ro.setPending(reqsBatch)
 
-		if err := ro.conn.sendBatch(batchReqs); err != nil {
+		if err := ro.conn.sendBatch(reqsBatch); err != nil {
 			close(ro.exited)
 			//reenqueueReq(req, ro.queue)
 			return
@@ -178,10 +174,11 @@ func (ro *Route) recv() {
 	}
 }
 
-// TODO: Receive batches
-func (ro *Route) setPending(req *Request) {
+func (ro *Route) setPending(reqs []*Request) {
 	ro.mtx.Lock()
-	ro.pending[req.seq] = req.rsp
+	for _, r := range reqs {
+		ro.pending[r.seq] = r.rsp
+	}
 	ro.mtx.Unlock()
 }
 
