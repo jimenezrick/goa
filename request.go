@@ -26,7 +26,7 @@ func (req *Request) SetTimeout(d time.Duration) {
 	req.tout = &d
 }
 
-func (req *Request) createTimeout() <-chan time.Time {
+func (req *Request) createTimer() <-chan time.Time {
 	if req.tout != nil {
 		return time.After(*req.tout)
 	}
@@ -46,7 +46,7 @@ func (req *Request) Send() error {
 	select {
 	case r.queue <- req:
 		return nil
-	case <-req.createTimeout():
+	case <-req.createTimer():
 		return ErrTimeout
 	}
 }
@@ -55,7 +55,7 @@ func (req *Request) Recv() ([]byte, error) {
 	select {
 	case rsp := <-req.rsp:
 		return rsp, nil
-	case <-req.createTimeout():
+	case <-req.createTimer():
 		return nil, ErrTimeout
 	}
 }
