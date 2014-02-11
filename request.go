@@ -29,13 +29,6 @@ func (req *Request) SetTimeout(d time.Duration) {
 	req.tout = &d
 }
 
-func (req *Request) createTimer() <-chan time.Time {
-	if req.tout != nil {
-		return time.After(*req.tout)
-	}
-	return nil
-}
-
 func (req *Request) Rsp() <-chan []byte {
 	return req.rsp
 }
@@ -44,23 +37,45 @@ func (req *Request) Send() error {
 	//
 	// TODO: req.SetRetry(N), implement here retry logic
 	//
+	if req.tout == nil {
+		r := req.bind.pickRandRoute()
+		r.queue <- req
+		return nil
+	} else {
+		return req.sendTimeout()
+	}
+}
+
+func (req *Request) sendTimeout() error {
 	r := req.bind.pickRandRoute()
 	select {
 	case r.queue <- req:
 		return nil
-	case <-req.createTimer():
+	case <-time.After(*req.tout):
 		return ErrTimeout
 	}
 }
 
 func (req *Request) Recv() ([]byte, error) {
+	if req.tout == nil {
+		rsp, ok := <-req.rsp
+		if !ok {
+			return nil, ErrReqCanceled
+		}
+		return rsp, nil
+	} else {
+		return req.recvTimeout()
+	}
+}
+
+func (req *Request) recvTimeout() ([]byte, error) {
 	select {
 	case rsp, ok := <-req.rsp:
 		if !ok {
 			return nil, ErrReqCanceled
 		}
 		return rsp, nil
-	case <-req.createTimer():
+	case <-time.After(*req.tout):
 		return nil, ErrTimeout
 	}
 }
