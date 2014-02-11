@@ -13,7 +13,10 @@ type Request struct {
 	tout  *time.Duration
 }
 
-var ErrTimeout = errors.New("timeout exceeded")
+var (
+	ErrTimeout     = errors.New("timeout exceeded")
+	ErrReqCanceled = errors.New("request canceled")
+)
 
 func newRequest(payld []byte, seq uint64) *Request {
 	return &Request{
@@ -30,7 +33,6 @@ func (req *Request) createTimer() <-chan time.Time {
 	if req.tout != nil {
 		return time.After(*req.tout)
 	}
-
 	return nil
 }
 
@@ -53,9 +55,18 @@ func (req *Request) Send() error {
 
 func (req *Request) Recv() ([]byte, error) {
 	select {
-	case rsp := <-req.rsp:
+	case rsp, ok := <-req.rsp:
+		if !ok {
+			return nil, ErrReqCanceled
+		}
 		return rsp, nil
 	case <-req.createTimer():
 		return nil, ErrTimeout
+	}
+}
+
+func (req *Request) cancel() {
+	if req.rsp != nil {
+		close(req.rsp)
 	}
 }

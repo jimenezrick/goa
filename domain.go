@@ -93,7 +93,10 @@ func (d *Domain) Announce(service string, handler func([]byte, uint64) ([]byte, 
 	}
 
 	//
-	// TODO: Optimize with batching like the client side
+	// TODO: Optimize with batching like the client side, with two goroutines
+	//       The define callback can do whatever the user wants, to send the
+	//       request to a worker pool through a channel o handle it directly on the
+	//       goroutine that receive the messages.
 	//
 
 	go func() {

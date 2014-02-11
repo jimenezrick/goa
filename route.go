@@ -1,7 +1,6 @@
 package goa
 
 import (
-	"errors"
 	"math"
 	"math/rand"
 	"net"
@@ -22,7 +21,7 @@ type Route struct {
 	addr  string
 	conn  *conn
 	seq   uint64
-	queue chan *Request // TODO: atomic ring
+	queue chan *Request
 
 	closed chan struct{}
 	exited chan struct{}
@@ -33,8 +32,6 @@ type Route struct {
 	mtx     sync.Mutex
 	pending map[uint64]chan<- []byte
 }
-
-var ErrUnknownSeq = errors.New("unknown sequence number")
 
 func init() {
 	rand.Seed(time.Now().UnixNano())
@@ -101,6 +98,9 @@ func (ro *Route) send() {
 			}
 
 			select {
+			//
+			// TODO: Add a cancel channel to remove timeouted replies from the client
+			//
 			case req, ok := <-ro.queue:
 				if !ok {
 					panic("queue closed")
@@ -112,8 +112,7 @@ func (ro *Route) send() {
 					break batch
 				}
 			case <-ro.closed:
-				// XXX: Take care of batched requests
-				panic("closing")
+				cancelBatch(reqsBatch)
 				close(ro.exited)
 				return
 			}
@@ -127,25 +126,22 @@ func (ro *Route) send() {
 
 		if err := ro.conn.sendBatch(reqsBatch); err != nil {
 			close(ro.exited)
-			//reenqueueReq(req, ro.queue)
+			cancelBatch(reqsBatch)
 			return
 		}
-		//log.Print("SEND ", req.seq)
 	}
 }
 
-// FIXME: NO: Send first next connection
-//
-// TODO
-// TODO: Return error to all non-delivered messages, push retry logic to the sender
-// TODO
-//
-func reenqueueReq(req *Request, queue chan<- *Request) {
-	// XXX: Timeout
-	queue <- req
+func cancelBatch(reqs []*Request) {
+	for _, r := range reqs {
+		r.cancel()
+	}
 }
 
+// XXX XXX XXX
 // TODO: Resend missing responses?
+//       Clean pending map?
+// XXX XXX XXX
 func (ro *Route) recv() {
 	defer ro.conn.close()
 	for {
@@ -153,28 +149,25 @@ func (ro *Route) recv() {
 		if err != nil {
 			close(ro.closed)
 			<-ro.exited
-
+			ro.cancelPending()
 			ro.connect()
 			return
 		}
 
 		rsp := ro.getPending(seq)
 		if rsp == nil {
-			log.Debug("Dropping msg:", ErrUnknownSeq)
+			panic("unknown sequence number")
 		}
-
-		select {
-		case rsp <- payld:
-		default:
-			panic("blocked sending respose")
-		}
+		rsp <- payld
 	}
 }
 
 func (ro *Route) setPending(reqs []*Request) {
 	ro.mtx.Lock()
 	for _, r := range reqs {
-		ro.pending[r.seq] = r.rsp
+		if r.rsp != nil {
+			ro.pending[r.seq] = r.rsp
+		}
 	}
 	ro.mtx.Unlock()
 }
@@ -185,4 +178,12 @@ func (ro *Route) getPending(seq uint64) chan<- []byte {
 	delete(ro.pending, seq)
 	ro.mtx.Unlock()
 	return rsp
+}
+
+func (ro *Route) cancelPending() {
+	ro.mtx.Lock()
+	for _, c := range ro.pending {
+		close(c)
+	}
+	ro.mtx.Unlock()
 }

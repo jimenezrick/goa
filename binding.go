@@ -36,6 +36,13 @@ func (cb *ClientBinding) NewRequest(payload []byte) *Request {
 	}
 }
 
+func (cb *ClientBinding) NewMessage(payload []byte) *Request {
+	return &Request{
+		bind:  cb,
+		payld: payload,
+	}
+}
+
 func (cb *ClientBinding) pickRandRoute() *Route {
 	cb.mtx.RLock()
 	r := cb.routes[cb.rnd.Intn(len(cb.routes))]
