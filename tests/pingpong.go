@@ -123,7 +123,7 @@ func test(n int, dom *goa.Domain) {
 	rsp2 := "pong" + string(payld)
 	for {
 		req := bind.NewRequest(payld)
-		//req.SetTimeout(time.Second) XXX
+		// XXX req.SetTimeout(time.Second)
 		if err := req.Send(); err != nil {
 			panic(err)
 		}
