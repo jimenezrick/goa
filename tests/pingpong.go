@@ -26,7 +26,7 @@ package main
 // XXX XXX XXX
 
 // XXX
-// 515.501 msg/s sin timeouts
+// 819.938 msg/s sin timeouts
 // XXX
 
 import (
@@ -45,7 +45,7 @@ import (
 
 const (
 	routes = 8
-	procs  = 256
+	procs  = 4096
 	secs   = 10
 )
 
