@@ -26,7 +26,7 @@ package main
 // XXX XXX XXX
 
 // XXX
-// 819.938 msg/s sin timeouts
+// Peak performance: 803.642msg/s (w/o timeouts)
 // XXX
 
 import (
