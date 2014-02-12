@@ -26,9 +26,6 @@ type Route struct {
 	closed chan struct{}
 	exited chan struct{}
 
-	//
-	// TODO: atomic replacement of map
-	//
 	mtx     sync.Mutex
 	pending map[uint64]chan<- []byte
 }
@@ -62,7 +59,7 @@ func (ro *Route) connect() error {
 		waitBackoff(i)
 	}
 	if err != nil {
-		// TODO: Resend queue to another route?
+		// TODO: Cancel all queue if we give up reconnecting
 		return err
 	}
 
@@ -85,11 +82,11 @@ func waitBackoff(i int) {
 func (ro *Route) send() {
 	defer ro.conn.close()
 
-	var reqsBatch = make([]*Request, 0, routeQueueLen)
+	var reqsBatch = make([]*Request, 0, maxBatchLen)
 	var batchSize = 0
 
 	for {
-		reqsBatch = reqsBatch[:0:cap(reqsBatch)]
+		reqsBatch = reqsBatch[:0:maxBatchLen]
 		batchSize = 0
 	batch:
 		for {
@@ -101,19 +98,15 @@ func (ro *Route) send() {
 			//
 			// TODO: Add a cancel channel to remove timeouted replies from the client
 			//
-			case req, ok := <-ro.queue:
-				if !ok {
-					panic("queue closed")
-				}
-
+			case req := <-ro.queue:
 				reqsBatch = append(reqsBatch, req)
 				batchSize += len(req.payld)
 				if len(reqsBatch) == maxBatchLen || batchSize >= minBatchSize {
 					break batch
 				}
 			case <-ro.closed:
-				cancelBatch(reqsBatch)
 				close(ro.exited)
+				cancelBatch(reqsBatch)
 				return
 			}
 		}
@@ -138,12 +131,9 @@ func cancelBatch(reqs []*Request) {
 	}
 }
 
-// XXX XXX XXX
-// TODO: Resend missing responses?
-//       Clean pending map?
-// XXX XXX XXX
 func (ro *Route) recv() {
 	defer ro.conn.close()
+
 	for {
 		payld, seq, err := ro.conn.recv()
 		if err != nil {
@@ -156,7 +146,7 @@ func (ro *Route) recv() {
 
 		rsp := ro.getPending(seq)
 		if rsp == nil {
-			panic("unknown sequence number")
+			log.Infof("Unknown sequence number %d, dropping frame", seq)
 		}
 		rsp <- payld
 	}
@@ -182,8 +172,9 @@ func (ro *Route) getPending(seq uint64) chan<- []byte {
 
 func (ro *Route) cancelPending() {
 	ro.mtx.Lock()
-	for _, c := range ro.pending {
-		close(c)
+	for seq, rsp := range ro.pending {
+		close(rsp)
+		delete(ro.pending, seq)
 	}
 	ro.mtx.Unlock()
 }
